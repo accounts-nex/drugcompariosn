@@ -569,3 +569,21 @@ A: Nadat je deze stappen hebt voltooid en ons toegang hebt gegeven, kunnen we de
 ## Vragen?
 
 Als iets onduidelijk is, vraag het! Het is beter om vragen te stellen dan fouten te maken tijdens de setup.
+
+---
+
+## Technische Documentatie
+
+Voor een gedetailleerde technische uitleg van hoe de frontend werkt en hoe het integreert met Supabase, zie:
+
+**FRONTEND_TECHNICAL_EXPLANATION.md**
+
+Dit document bevat:
+- Architectuur overzicht met diagrammen
+- Uitleg van elke component
+- Database operaties in detail
+- Data flow scenarios
+- Code voorbeelden
+- Security overwegingen
+
+Perfect voor ontwikkelaars die de code moeten begrijpen of aanpassen.
