@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { User, FileText, Filter, Calendar, Save, RotateCcw, CheckCircle, Info, LogOut, Building2, Mail, Hash, Clock, TrendingDown, Bell, List, Tag, Plus, X, Send } from 'lucide-react';
+import { User, FileText, Filter, Calendar, Save, RotateCcw, CheckCircle, Info, LogOut, Building2, Mail, Hash, Clock, TrendingDown, Bell, List, Tag, Plus, X } from 'lucide-react';
 import type { ReportConfiguration, Frequency, DateRange } from '../types/reportConfig';
 import { useEmail } from '../contexts/EmailContext';
 import { createReport, updateReport, getReportById } from '../services/reportsService';
 
 const WEBHOOK_URL = 'https://co-contracting.app.n8n.cloud/webhook-test/0c4610d6-8f85-4e16-8139-58237e206178';
-const TEST_MAIL_WEBHOOK_URL = 'https://co-contracting.app.n8n.cloud/webhook/a369fc77-a1ea-40f6-a314-10c9c39ebfc2';
 
 interface ReportConfigFormProps {
   onViewReports: () => void;
@@ -40,7 +39,6 @@ export default function ReportConfigForm({ onViewReports, editingReportId, onCle
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSendingTestMail, setIsSendingTestMail] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const [isLoadingPreferences, setIsLoadingPreferences] = useState(false);
@@ -120,80 +118,6 @@ export default function ReportConfigForm({ onViewReports, editingReportId, onCle
     reset();
     localStorage.removeItem('reportConfigDraft');
     setShowSummary(false);
-  };
-
-  const handleSendTestMail = async () => {
-    if (!email) {
-      setSubmitMessage({ type: 'error', text: 'Email is required' });
-      return;
-    }
-
-    const data = watchAllFields;
-    const filteredEmails = (data.contact_email || []).filter(e => e && e.trim() !== '');
-
-    if (filteredEmails.length === 0) {
-      setSubmitMessage({ type: 'error', text: 'At least one contact email is required' });
-      return;
-    }
-
-    if (!data.person_name) {
-      setSubmitMessage({ type: 'error', text: 'Person name is required' });
-      return;
-    }
-
-    if (!data.customer_id) {
-      setSubmitMessage({ type: 'error', text: 'Customer ID is required' });
-      return;
-    }
-
-    setIsSendingTestMail(true);
-    setSubmitMessage(null);
-
-    try {
-      const testMailData = {
-        email: email,
-        report_name: data.report_name || 'Test Report',
-        person_name: data.person_name,
-        contact_email: filteredEmails,
-        customer_id: data.customer_id,
-        report_type: data.report_type,
-        date_range: data.date_range,
-        apply_loss_threshold: data.apply_loss_threshold,
-        total_loss_per_order_pack: data.total_loss_per_order_pack || null,
-        loss_per_ordered_pack: data.loss_per_ordered_pack || null,
-        grand_total_loss: data.grand_total_loss || null,
-        frequency: data.frequency,
-        delivery_day_of_week: data.frequency === 'weekly' && data.delivery_day_of_week !== undefined && data.delivery_day_of_week !== ''
-          ? Number(data.delivery_day_of_week)
-          : null,
-        delivery_day_of_month: data.frequency === 'monthly' && data.delivery_day_of_month !== undefined && data.delivery_day_of_month !== ''
-          ? Number(data.delivery_day_of_month)
-          : null,
-        delivery_time_hour: Number(data.delivery_time_hour),
-        send_notification_no_data: data.send_notification_no_data,
-        is_test: true,
-      };
-
-      const response = await fetch(TEST_MAIL_WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(testMailData),
-      });
-
-      if (response.ok) {
-        setSubmitMessage({ type: 'success', text: 'Test mail sent successfully!' });
-      } else {
-        setSubmitMessage({ type: 'error', text: 'Failed to send test mail' });
-      }
-    } catch (error) {
-      console.error('Test mail error:', error);
-      setSubmitMessage({ type: 'error', text: 'Failed to send test mail' });
-    } finally {
-      setIsSendingTestMail(false);
-      setTimeout(() => setSubmitMessage(null), 5000);
-    }
   };
 
   const onSubmit = async (data: ReportConfiguration) => {
@@ -805,16 +729,6 @@ export default function ReportConfigForm({ onViewReports, editingReportId, onCle
             >
               <FileText className="w-5 h-5" />
               {isSubmitting ? (editingReportId ? 'Saving...' : 'Submitting...') : (editingReportId ? 'Save Configuration' : 'Submit Configuration')}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleSendTestMail}
-              disabled={isSendingTestMail}
-              className="px-6 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg font-semibold hover:from-emerald-700 hover:to-emerald-800 focus:ring-4 focus:ring-emerald-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg flex items-center gap-2.5"
-            >
-              <Send className="w-5 h-5" />
-              {isSendingTestMail ? 'Sending...' : 'Send Test Mail'}
             </button>
 
             {!editingReportId && (
