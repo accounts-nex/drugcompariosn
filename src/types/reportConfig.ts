@@ -6,8 +6,6 @@ export interface ReportConfiguration {
   report_name?: string;
   report_type: string;
   date_range: DateRange;
-  start_date?: string;
-  end_date?: string;
   apply_loss_threshold: boolean;
   total_loss_per_order_pack?: number;
   loss_per_ordered_pack?: number;
