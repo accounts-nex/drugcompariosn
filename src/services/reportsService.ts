@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { apiClient } from '../lib/supabase';
 import type { ReportConfiguration } from '../types/reportConfig';
 
 export interface ReportSchedule {
@@ -25,33 +25,23 @@ export interface ReportSchedule {
 }
 
 export async function getActiveReports(email: string): Promise<ReportSchedule[]> {
-  const { data, error } = await supabase
-    .from('active_report_schedules')
-    .select('*')
-    .eq('email', email)
-    .order('created_at', { ascending: false });
-
-  if (error) {
+  try {
+    const data = await apiClient.get(`/report-schedules/active?email=${encodeURIComponent(email)}`);
+    return (data || []).map((r: ReportSchedule) => ({ ...r, is_active: true }));
+  } catch (error) {
     console.error('Error fetching active reports:', error);
     throw new Error('Failed to fetch active reports');
   }
-
-  return (data || []).map(r => ({ ...r, is_active: true }));
 }
 
 export async function getInactiveReports(email: string): Promise<ReportSchedule[]> {
-  const { data, error } = await supabase
-    .from('inactive_report_schedules')
-    .select('*')
-    .eq('email', email)
-    .order('created_at', { ascending: false });
-
-  if (error) {
+  try {
+    const data = await apiClient.get(`/report-schedules/inactive?email=${encodeURIComponent(email)}`);
+    return (data || []).map((r: ReportSchedule) => ({ ...r, is_active: false }));
+  } catch (error) {
     console.error('Error fetching inactive reports:', error);
     throw new Error('Failed to fetch inactive reports');
   }
-
-  return (data || []).map(r => ({ ...r, is_active: false }));
 }
 
 export async function getAllReports(email: string): Promise<ReportSchedule[]> {
@@ -66,39 +56,13 @@ export async function getAllReports(email: string): Promise<ReportSchedule[]> {
 }
 
 export async function getReportById(reportId: string, email: string): Promise<ReportSchedule | null> {
-  const { data: activeData, error: activeError } = await supabase
-    .from('active_report_schedules')
-    .select('*')
-    .eq('id', reportId)
-    .eq('email', email)
-    .maybeSingle();
-
-  if (activeError) {
-    console.error('Error fetching active report:', activeError);
-    throw new Error('Failed to fetch report');
+  try {
+    const data = await apiClient.get(`/report-schedules/${reportId}?email=${encodeURIComponent(email)}`);
+    return data;
+  } catch (error) {
+    console.error('Error fetching report:', error);
+    return null;
   }
-
-  if (activeData) {
-    return { ...activeData, is_active: true };
-  }
-
-  const { data: inactiveData, error: inactiveError } = await supabase
-    .from('inactive_report_schedules')
-    .select('*')
-    .eq('id', reportId)
-    .eq('email', email)
-    .maybeSingle();
-
-  if (inactiveError) {
-    console.error('Error fetching inactive report:', inactiveError);
-    throw new Error('Failed to fetch report');
-  }
-
-  if (inactiveData) {
-    return { ...inactiveData, is_active: false };
-  }
-
-  return null;
 }
 
 export async function createReport(
@@ -130,18 +94,13 @@ export async function createReport(
     send_notification_no_data: formData.send_notification_no_data,
   };
 
-  const { data, error } = await supabase
-    .from('active_report_schedules')
-    .insert(reportData)
-    .select()
-    .single();
-
-  if (error) {
+  try {
+    const data = await apiClient.post('/report-schedules', reportData);
+    return { ...data, is_active: true };
+  } catch (error) {
     console.error('Error creating report:', error);
     throw new Error('Failed to create report');
   }
-
-  return { ...data, is_active: true };
 }
 
 export async function updateReport(
@@ -172,85 +131,34 @@ export async function updateReport(
       : null,
     delivery_time_hour: Number(formData.delivery_time_hour),
     send_notification_no_data: formData.send_notification_no_data,
-    updated_at: new Date().toISOString(),
+    is_active: isActive,
   };
 
-  const tableName = isActive ? 'active_report_schedules' : 'inactive_report_schedules';
-
-  const { data, error } = await supabase
-    .from(tableName)
-    .update(reportData)
-    .eq('id', reportId)
-    .eq('email', email)
-    .select()
-    .single();
-
-  if (error) {
+  try {
+    const data = await apiClient.put(`/report-schedules/${reportId}?email=${encodeURIComponent(email)}`, reportData);
+    return { ...data, is_active: isActive };
+  } catch (error) {
     console.error('Error updating report:', error);
     throw new Error('Failed to update report');
   }
-
-  return { ...data, is_active: isActive };
 }
 
 export async function toggleReportActive(reportId: string, email: string, currentlyActive: boolean): Promise<ReportSchedule> {
-  const sourceTable = currentlyActive ? 'active_report_schedules' : 'inactive_report_schedules';
-  const targetTable = currentlyActive ? 'inactive_report_schedules' : 'active_report_schedules';
-
-  const { data: report, error: fetchError } = await supabase
-    .from(sourceTable)
-    .select('*')
-    .eq('id', reportId)
-    .eq('email', email)
-    .single();
-
-  if (fetchError || !report) {
-    console.error('Error fetching report for toggle:', fetchError);
-    throw new Error('Failed to fetch report');
+  try {
+    const data = await apiClient.put(`/report-schedules/${reportId}/toggle?email=${encodeURIComponent(email)}`, {
+      is_active: !currentlyActive,
+    });
+    return { ...data, is_active: !currentlyActive };
+  } catch (error) {
+    console.error('Error toggling report:', error);
+    throw new Error('Failed to toggle report');
   }
-
-  const { id, created_at, updated_at, ...reportData } = report;
-
-  const { data: newReport, error: insertError } = await supabase
-    .from(targetTable)
-    .insert({
-      ...reportData,
-      id,
-      created_at,
-      updated_at: new Date().toISOString(),
-    })
-    .select()
-    .single();
-
-  if (insertError) {
-    console.error('Error inserting into target table:', insertError);
-    throw new Error('Failed to move report');
-  }
-
-  const { error: deleteError } = await supabase
-    .from(sourceTable)
-    .delete()
-    .eq('id', reportId)
-    .eq('email', email);
-
-  if (deleteError) {
-    console.error('Error deleting from source table:', deleteError);
-    throw new Error('Failed to complete toggle');
-  }
-
-  return { ...newReport, is_active: !currentlyActive };
 }
 
 export async function deleteReport(reportId: string, email: string, isActive: boolean): Promise<void> {
-  const tableName = isActive ? 'active_report_schedules' : 'inactive_report_schedules';
-
-  const { error } = await supabase
-    .from(tableName)
-    .delete()
-    .eq('id', reportId)
-    .eq('email', email);
-
-  if (error) {
+  try {
+    await apiClient.delete(`/report-schedules/${reportId}?email=${encodeURIComponent(email)}`);
+  } catch (error) {
     console.error('Error deleting report:', error);
     throw new Error('Failed to delete report');
   }
